@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#1e1e1e">
+<link rel="manifest" href="manifest.webmanifest"><link rel="icon" type="image/png" href="icon-192.png"><link rel="apple-touch-icon" href="icon-192.png">
+<title>乡ＡＬＩＡＲツ</title>
+<style>
+/* ---------- Layout: portrait = top/bottom, landscape = left/right ---------- */
+:root{--fs:14px;--lh:21px;--ts:2}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:#1e1e1e;color:#d4d4d4;overflow:hidden;overscroll-behavior:none;font-family:system-ui,sans-serif}
+#app{display:flex;flex-direction:column;height:100%}
+@media(orientation:landscape){#app{flex-direction:row}}
+#ed{position:relative;flex:0 0 50%;min-width:0;min-height:0;overflow:hidden}
+#bar{flex:0 0 16px;background:#252526;touch-action:none;position:relative}
+#bar::after{content:"";position:absolute;left:50%;top:50%;width:40px;height:4px;margin:-2px -20px;background:#6b6b6b;border-radius:2px}
+@media(orientation:landscape){#bar::after{width:4px;height:40px;margin:-20px -2px}}
+#pvw{position:relative;flex:1;min-width:0;min-height:0}
+#pv{position:absolute;inset:0;overflow:auto;background:#3c3c3c}
+#stage{position:relative;overflow:hidden;background:#fff}
+#fr{border:0;background:#fff;display:block;transform-origin:0 0}
+/* ---------- Editor: transparent textarea on top of a colored copy (#hl) ---------- */
+#hl,#ta{position:absolute;inset:0;margin:0;padding:8px 8px 60px 42px;border:0;
+ font:var(--fs)/var(--lh) ui-monospace,Menlo,Consolas,monospace;tab-size:var(--ts);
+ white-space:pre-wrap;overflow-wrap:break-word;word-break:normal;scrollbar-width:none}
+#hl::-webkit-scrollbar,#ta::-webkit-scrollbar{display:none}
+#ed.nw #hl,#ed.nw #ta{white-space:pre;overflow-wrap:normal}
+#hl{overflow:hidden;pointer-events:none;color:#d4d4d4;counter-reset:n}
+#ta{overflow:auto;background:transparent;-webkit-text-fill-color:transparent;caret-color:#aeafad;resize:none;outline:0}
+#ta::selection{background:#264f78}
+.l{position:relative}
+.l::before{counter-increment:n;content:counter(n);position:absolute;left:-38px;width:30px;text-align:right;color:#858585}
+#hl i{display:inline-block;width:calc(var(--ts)*1ch);height:var(--lh);vertical-align:top;box-shadow:inset 1px 0 #404040} /* indent guide */
+.t,.d{color:#569cd6}.p{color:#808080}.a{color:#9cdcfe}.s{color:#ce9178}.c{color:#6a9955}
+.k{color:#c586c0}.n{color:#b5cea8}.f{color:#dcdcaa}.y{color:#d7ba7d}
+/* ---------- Floating buttons and menus ---------- */
+.fab{position:absolute;z-index:5;display:flex;gap:4px}
+button{font:inherit}
+.fab button{width:30px;height:30px;border:0;border-radius:6px;background:#37373d;color:#ccc;font-size:16px;opacity:.55}
+.pop{position:absolute;z-index:6;display:none;background:#252526;border:1px solid #454545;border-radius:6px;padding:4px;color:#ccc;font-size:14px;max-height:90%;overflow:auto}
+.pop.on{display:block}
+#menu button{display:block;width:100%;text-align:left;background:none;border:0;color:#ccc;padding:9px 14px}
+#panel{width:260px}
+#panel label{display:flex;align-items:center;gap:6px;margin:6px}
+#panel label span{width:48px}
+#panel input[type=number]{width:64px;background:#3c3c3c;border:1px solid #555;color:#eee;padding:4px;border-radius:4px}
+#panel input[type=range]{flex:1;min-width:0}
+.row{display:flex;flex-wrap:wrap;gap:4px;margin:6px}
+#panel{max-height:none;overflow:visible;transform-origin:0 0;opacity:.55;background:#1b1b1e}
+#ph{display:flex;align-items:center;gap:8px;padding:6px;border-bottom:1px solid #454545;cursor:move;touch-action:none;user-select:none}
+#ph input{flex:1;min-width:0}
+#ph button{background:#37373d;border:0;color:#ccc;border-radius:4px;width:28px;height:28px}
+#rs{position:absolute;right:0;bottom:0;width:30px;height:30px;text-align:right;line-height:34px;padding-right:4px;color:#aaa;cursor:nwse-resize;touch-action:none;user-select:none}
+.row button{background:#37373d;border:0;color:#ccc;padding:7px 9px;border-radius:4px}
+</style></head><body>
+<div id="app">
+ <div id="ed">
+  <pre id="hl"></pre>
+  <textarea id="ta" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" wrap="soft"></textarea>
+  <div class="fab" style="right:6px;top:4px"><button id="tab">⇥</button><button id="mb">⋮</button></div>
+  <div class="pop" id="menu" style="right:6px;top:38px">
+   <button id="new">New file</button><button id="open">Open file</button><button id="save">Save</button><button id="saveas">Save as…</button>
+   <button id="fm">Font smaller</button><button id="fp">Font bigger</button>
+   <button id="wrapb"></button><button id="tsb"></button><button id="tabb"></button>
+  </div>
+  <input type="file" id="file" hidden accept=".html,.htm,.css,.js,.txt,text/*">
+ </div>
+ <div id="bar"></div>
+ <div id="pvw">
+  <div id="pv"><div id="stage"><iframe id="fr"></iframe></div></div>
+  <div class="fab" style="right:12px;top:4px"><button id="gear">⚙</button></div>
+  <div class="pop" id="panel" style="right:12px;top:38px">
+   <div id="ph"><span>⠿ Move</span><input id="op" type="range" min="15" max="100" value="55" title="Visibility"><button id="px">×</button></div>
+   <label><span>Width</span><input id="W" type="number" inputmode="numeric" placeholder="auto"><input id="Ws" type="range" min="100" max="2400"></label>
+   <label><span>Height</span><input id="H" type="number" inputmode="numeric" placeholder="auto"><input id="Hs" type="range" min="100" max="2400"></label>
+   <label><span>Zoom</span><input id="Z" type="range" min="20" max="200" value="100"><b id="zv" style="width:42px;font-weight:400">100%</b></label>
+   <label><input type="checkbox" id="bw"><span style="width:auto">Break long words</span></label>
+   <div class="row"><button data-p="0,0">Auto</button><button data-p="375,667">Phone</button><button data-p="768,1024">Tablet</button><button data-p="1280,800">Laptop</button><button id="fit">Fit</button><button id="rot">Rotate</button><button id="rl">Reload</button></div>
+   <div id="rs">◢</div>
+  </div>
+ </div>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+const ta=$('ta'),hl=$('hl'),fr=$('fr'),pv=$('pv'),stage=$('stage'),app=$('app'),ed=$('ed');
+const store={get(k){try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
+const M='\u0000', VOID=/^(br|hr|img|input|meta|link|area|base|col|embed|source|track|wbr)$/;
+const PAIRS={'(':')','[':']','{':'}','"':'"',"'":"'",'`':'`'};
+let fname=store.get('fname')||'index.html', z=1, prevV='', loaded=false, lastSig='';
+let fsv=+store.get('fs')||14, ts=+store.get('ts')||2, wrap=store.get('wrap')!=='0', tabBtn=store.get('tabbtn')!=='0', IND='  ';
+
+/* ================= 1. Syntax colors (VS Code Dark+) ================= */
+const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;');
+function tok(s,re,cls){let o='',i=0,m;re.lastIndex=0; // each regex group = one color
+ while((m=re.exec(s))){o+=esc(s.slice(i,m.index));let g=1;while(m[g]===undefined)g++;
+  o+='<span class="'+cls[g-1]+'">'+esc(m[0])+'</span>';i=re.lastIndex;}
+ return o+esc(s.slice(i));}
+const hlJs=s=>tok(s,/(\/\/.*|\/\*[\s\S]*?(?:\*\/|$))|("(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*'|`(?:\\.|[^`\\])*`)|\b(const|let|var|function|return|if|else|for|while|new|class|import|export|from|async|await|try|catch|throw|switch|case|break|continue|this|typeof|of|in|default|true|false|null|undefined)\b|(\b\d+\.?\d*\b)|([A-Za-z_$][\w$]*)(?=\()/g,['c','s','k','n','f']);
+const hlCss=s=>tok(s,/(\/\*[\s\S]*?(?:\*\/|$))|("[^"\n]*"|'[^'\n]*')|(#[0-9a-fA-F]{3,8}\b)|((?<![\w#-])-?(?:\d+\.?\d*|\.\d+)(?:px|em|rem|%|vh|vw|s|deg|fr)?)|(@[\w-]+)|([\w-]+)(?=\s*:)|([.#][\w-]+)/gi,['c','s','n','n','k','a','y']);
+const hlAttr=s=>tok(s,/("[^"]*"|'[^']*')|([\w:@.-]+)(?=\s*=)|(=)|([\w:@.-]+)/g,['s','a','p','a']);
+function hlHtml(s){
+ let o='',i=0,m;const re=/<!--[\s\S]*?(?:-->|$)|<!doctype[^>]*>|(<\/?)([A-Za-z][\w:-]*)((?:"[^"]*"|'[^']*'|[^>"'])*)(>?)/gi;
+ while((m=re.exec(s))){
+  o+=esc(s.slice(i,m.index));i=re.lastIndex;
+  if(!m[2]){o+='<span class="'+(m[0][2]=='-'?'c':'d')+'">'+esc(m[0])+'</span>';continue}
+  o+='<span class="p">'+esc(m[1])+'</span><span class="t">'+m[2]+'</span>'+hlAttr(m[3])+'<span class="p">'+m[4]+'</span>';
+  const t=m[2].toLowerCase();
+  if(m[1]=='<'&&(t=='style'||t=='script')){ // code inside <style> / <script>
+   let e=s.toLowerCase().indexOf('</'+t,i);if(e<0)e=s.length;
+   o+=(t=='style'?hlCss:hlJs)(s.slice(i,e));i=e;re.lastIndex=e;}
+ }
+ return o+esc(s.slice(i));}
+const lang=()=>/\.css$/i.test(fname)?'css':/\.js$/i.test(fname)?'js':'html';
+// Every code line becomes one <div> (so wrapped lines and line numbers stay correct)
+function render(){
+ const v=ta.value,L=lang(),h=L=='css'?hlCss(v):L=='js'?hlJs(v):hlHtml(v);let open='';
+ hl.innerHTML=h.split('\n').map(l=>{
+  const g=l.replace(/^ +/,m=>'<i></i>'.repeat(Math.floor(m.length/ts))+' '.repeat(m.length%ts)); // indent guides
+  const pre=open?'<span class="'+open+'">':'';let o=open,m;const re=/<span class="(\w+)">|<\/span>/g;
+  while((m=re.exec(l)))o=m[1]||''; // keep colors alive on multi-line comments/strings
+  open=o;return '<div class="l">'+pre+(g||'&#8203;')+(o?'</span>':'')+'</div>';}).join('');
+ syncScroll();}
+function syncScroll(){hl.scrollTop=ta.scrollTop;hl.scrollLeft=ta.scrollLeft}
+ta.addEventListener('scroll',syncScroll);
+
+/* ================= 2. Live preview (no reload, keeps scroll) ================= */
+const sigOf=c=>[...new DOMParser().parseFromString(c,'text/html').scripts].map(s=>s.src+'|'+s.textContent).join('\u0001');
+function setAttrs(a,b){
+ for(const x of [...a.attributes])if(!b.hasAttribute(x.name))a.removeAttribute(x.name);
+ for(const x of b.attributes)if(a.getAttribute(x.name)!==x.value)a.setAttribute(x.name,x.value);}
+function sync(a,b){ // change only what is different
+ const ak=a.childNodes,bk=b.childNodes;
+ for(let i=0;i<bk.length;i++){
+  const x=ak[i],y=bk[i];
+  if(!x){a.appendChild(a.ownerDocument.importNode(y,true));continue}
+  if(x.nodeType!==y.nodeType||x.nodeName!==y.nodeName){a.replaceChild(a.ownerDocument.importNode(y,true),x);continue}
+  if(x.nodeType===3||x.nodeType===8){if(x.nodeValue!==y.nodeValue)x.nodeValue=y.nodeValue;continue}
+  if(x.nodeName==='SCRIPT')continue;
+  setAttrs(x,y);sync(x,y);}
+ while(a.childNodes.length>bk.length)a.removeChild(a.lastChild);}
+function fullReload(code){ // first load, or when JavaScript changed. Scroll is restored.
+ const w=fr.contentWindow,sx=w?w.scrollX:0,sy=w?w.scrollY:0;loaded=false;
+ fr.onload=()=>{loaded=true;lastSig=sigOf(code);const w2=fr.contentWindow;applyBw();w2.scrollTo(sx,sy);hook();setTimeout(()=>w2.scrollTo(sx,sy),80)};
+ fr.srcdoc=code;}
+let fullT,pinT;
+function setPreview(code){
+ if(lang()!=='html')return;
+ const d=fr.contentDocument;
+ if(!loaded||!d||!d.body){fullReload(code);return}
+ if(sigOf(code)!==lastSig){clearTimeout(fullT);fullT=setTimeout(()=>fullReload(ta.value),600);return}
+ const w=fr.contentWindow,sx=w.scrollX,sy=w.scrollY,h=d.documentElement,hh=h.scrollHeight;
+ const nd=new DOMParser().parseFromString(code,'text/html');
+ setAttrs(h,nd.documentElement);sync(d.head,nd.head);setAttrs(d.body,nd.body);sync(d.body,nd.body);
+ h.style.minHeight=hh+'px';w.scrollTo(sx,sy); // page never gets shorter while you type, so scroll cannot jump
+ clearTimeout(pinT);pinT=setTimeout(()=>{h.style.minHeight=''},900);}
+let t1;function schedule(){clearTimeout(t1);t1=setTimeout(()=>setPreview(ta.value),50);store.set('code',ta.value)}
+function pinch(el,fn){let pd=0; // two-finger pinch
+ el.addEventListener('touchmove',e=>{if(e.touches.length!==2){pd=0;return}e.preventDefault();
+  const a=e.touches[0],b=e.touches[1],d=Math.hypot(a.screenX-b.screenX,a.screenY-b.screenY);if(pd)fn(d/pd);pd=d},{passive:false});
+ el.addEventListener('touchend',()=>pd=0);}
+let bw=store.get('bw')!=='0'; // break very long words so the page never scrolls sideways
+function applyBw(){try{const d=fr.contentDocument,sh=new fr.contentWindow.CSSStyleSheet();sh.replaceSync(bw?'html{overflow-wrap:anywhere}':'');d.adoptedStyleSheets=[sh]}catch(e){}}
+$('bw').checked=bw;$('bw').onchange=()=>{bw=$('bw').checked;store.set('bw',bw?1:0);applyBw()};
+function hook(){const d=fr.contentDocument;if(d)pinch(d,r=>setZ(z*r))}
+pinch(ta,r=>setFs(fsv*r)); // pinch the code = bigger / smaller text
+
+/* ================= 3. Preview size, zoom, divider ================= */
+const W=$('W'),H=$('H'),Z=$('Z'),Ws=$('Ws'),Hs=$('Hs');
+function layout(){
+ const r=pv.getBoundingClientRect();
+ const w=+W.value||Math.max(50,Math.round(r.width/z)),h=+H.value||Math.max(50,Math.round(r.height/z));
+ fr.style.width=w+'px';fr.style.height=h+'px';fr.style.transform='scale('+z+')';
+ stage.style.width=w*z+'px';stage.style.height=h*z+'px';Ws.value=w;Hs.value=h;if(P.classList.contains('on'))place(P.offsetLeft,P.offsetTop);}
+function setZ(n){z=Math.min(2,Math.max(.2,n));Z.value=Math.round(z*100);$('zv').textContent=Math.round(z*100)+'%';layout()}
+W.oninput=H.oninput=layout;Z.oninput=()=>setZ(Z.value/100);
+Ws.oninput=()=>{W.value=Ws.value;layout()};Hs.oninput=()=>{H.value=Hs.value;layout()};
+document.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>{const [w,h]=b.dataset.p.split(',');W.value=+w||'';H.value=+h||'';layout()});
+$('fit').onclick=()=>{const r=pv.getBoundingClientRect();if(+W.value&&+H.value)setZ(Math.min(r.width/W.value,r.height/H.value))};
+$('rot').onclick=()=>{const t=W.value;W.value=H.value;H.value=t;layout()};
+$('rl').onclick=()=>fullReload(ta.value);
+new ResizeObserver(layout).observe(pv);
+const bar=$('bar');let drag=false; // divider
+bar.onpointerdown=e=>{bar.setPointerCapture(e.pointerId);drag=true};
+bar.onpointermove=e=>{if(!drag)return;const r=app.getBoundingClientRect(),row=getComputedStyle(app).flexDirection==='row';
+ const size=row?r.width:r.height,pos=row?e.clientX-r.left:e.clientY-r.top;
+ ed.style.flexBasis=Math.min(Math.max(pos-8,60),size-84)+'px'};
+bar.onpointerup=bar.onpointercancel=()=>drag=false;
+matchMedia('(orientation:landscape)').onchange=()=>ed.style.flexBasis='50%';
+$('mb').onclick=e=>{e.stopPropagation();$('menu').classList.toggle('on')};
+document.addEventListener('click',e=>{if(!e.target.closest('#menu'))$('menu').classList.remove('on')});
+/* ---- Settings window: move it (drag the top row), resize it (corner or two-finger pinch), change its visibility ---- */
+const P=$('panel'),box=$('pvw'),op=$('op');let ps=+store.get('ps')||1;
+function place(x,y){const b=box.getBoundingClientRect(),w=P.offsetWidth*ps,h=P.offsetHeight*ps;
+ x=Math.min(Math.max(0,x),Math.max(0,b.width-w));y=Math.min(Math.max(0,y),Math.max(0,b.height-h));
+ P.style.left=x+'px';P.style.top=y+'px';P.style.right='auto';store.set('pp',x+','+y)}
+function scaleP(n){ps=Math.min(2,Math.max(.5,n));P.style.transform='scale('+ps+')';store.set('ps',ps)}
+function restore(){scaleP(ps);const pp=(store.get('pp')||'').split(',');
+ if(pp.length==2)place(+pp[0],+pp[1]);else place(box.getBoundingClientRect().width-P.offsetWidth*ps-12,38)}
+$('gear').onclick=e=>{e.stopPropagation();P.classList.toggle('on');if(P.classList.contains('on'))restore()};
+$('px').onclick=()=>P.classList.remove('on');
+const ph=$('ph');let dg=null;
+ph.onpointerdown=e=>{if(e.target.closest('input,button'))return;ph.setPointerCapture(e.pointerId);dg={x:e.clientX-P.offsetLeft,y:e.clientY-P.offsetTop}};
+ph.onpointermove=e=>{if(dg)place(e.clientX-dg.x,e.clientY-dg.y)};
+ph.onpointerup=ph.onpointercancel=()=>dg=null;
+const rs=$('rs');let rz=null;
+rs.onpointerdown=e=>{rs.setPointerCapture(e.pointerId);rz={s:ps,x:e.clientX,w:P.offsetWidth*ps}};
+rs.onpointermove=e=>{if(rz)scaleP(rz.s*(rz.w+e.clientX-rz.x)/rz.w)};
+rs.onpointerup=rs.onpointercancel=()=>rz=null;
+pinch(P,r=>scaleP(ps*r));
+op.value=+store.get('op')||55;P.style.opacity=op.value/100;
+op.oninput=()=>{P.style.opacity=op.value/100;store.set('op',op.value)};
+
+/* ================= 4. Smart editing ================= */
+let inserting=false,busy=false;
+function ins(t){ // insert text the way the keyboard does, so Undo (Ctrl+Z) still works
+ const was=inserting;inserting=true;
+ try{t.split('\n').forEach((p,i)=>{if(i)document.execCommand('insertLineBreak');if(p)document.execCommand('insertText',false,p)})}
+ finally{inserting=was}}
+const OPEN=/<([A-Za-z][\w-]*)(?:"[^"]*"|'[^']*'|[^<>"'])*>$/;
+const lineB=(v,s)=>v.slice(v.lastIndexOf('\n',s-1)+1,s);
+// true when the cursor is inside { } of CSS (a .css file or a <style> block)
+function cssBlock(v,s){const b=v.slice(0,s);let c=b;
+ if(lang()==='html'){const a=b.lastIndexOf('<style');if(a<0||a<b.lastIndexOf('</style'))return false;c=b.slice(a)}
+ else if(lang()!=='css')return false;
+ return c.lastIndexOf('{')>c.lastIndexOf('}')}
+// Enter: keep indentation, add one level after an opening tag or { [ (, and put the closing part on its own line
+function enter(){
+ const v=ta.value,s=ta.selectionStart,e=ta.selectionEnd,line=lineB(v,s),ind=/^[ \t]*/.exec(line)[0];
+ const m=OPEN.exec(line),tagOpen=m&&!line.endsWith('/>')&&!VOID.test(m[1].toLowerCase());
+ const between=(v[s-1]&&({'{':'}','[':']','(':')'})[v[s-1]]===v[e])||(tagOpen&&v.slice(e).startsWith('</'+m[1]));
+ if(between){ins('\n'+ind+IND+'\n'+ind);const p=s+1+ind.length+IND.length;ta.setSelectionRange(p,p)}
+ else ins('\n'+ind+(tagOpen||/[{[(]$/.test(line)?IND:''));}
+// ---- Emmet: HTML ----
+const boiler=()=>'<!DOCTYPE html>\n<html lang="en">\n<head>\n'+IND+'<meta charset="UTF-8">\n'+IND+'<meta name="viewport" content="width=device-width, initial-scale=1.0">\n'+IND+'<title>Document</title>\n</head>\n<body>\n'+IND+M+'\n</body>\n</html>';
+const DEF={a:' href=""',img:' src="" alt=""',link:' rel="stylesheet" href=""',script:' src=""',input:' type="text"',form:' action=""'};
+function gen(parts,d){ // examples: ul>li.item$*3  a[href=#]{Link}  div#a+div#b
+ const sibs=parts[0].split('+'),pad=IND.repeat(d),out=[];
+ sibs.forEach((s,k)=>{
+  const m=/^([\w-]*)((?:[.#][\w$-]+)*)(?:\[([^\]]*)\])?(?:\{([^}]*)\})?(?:\*(\d+))?$/.exec(s);if(!m)throw 0;
+  const tag=m[1]||'div',kids=k==sibs.length-1&&parts.length>1;
+  for(let n=1;n<=(+m[5]||1);n++){
+   const q=x=>x.replace(/\$/g,n),id=(/#([\w$-]+)/.exec(m[2])||[])[1],cls=(m[2].match(/\.[\w$-]+/g)||[]).map(c=>q(c.slice(1))).join(' ');
+   let at=(id?' id="'+q(id)+'"':'')+(cls?' class="'+cls+'"':'');
+   if(m[3])at+=m[3].trim().split(/\s+/).map(a=>{const[p,...v]=a.split('=');return ' '+p+'="'+q(v.join('='))+'"'}).join('');
+   else at+=DEF[tag]||'';
+   if(VOID.test(tag)){out.push(pad+'<'+tag+at+'>');continue}
+   if(kids)out.push(pad+'<'+tag+at+'>',gen(parts.slice(1),d+1),pad+'</'+tag+'>');
+   else out.push(pad+'<'+tag+at+'>'+q(m[4]||'')+(m[4]?'':M)+'</'+tag+'>');}
+ });
+ return out.join('\n');}
+// ---- Emmet: CSS (df, jcc, aic, m10, p20, w100p, fz16, br8 ...) ----
+const CK={df:['display','flex'],dg:['display','grid'],db:['display','block'],dn:['display','none'],dib:['display','inline-block'],pa:['position','absolute'],pr:['position','relative'],pf:['position','fixed'],ps:['position','sticky'],jcc:['justify-content','center'],jcsb:['justify-content','space-between'],aic:['align-items','center'],fdc:['flex-direction','column'],tac:['text-align','center'],ofh:['overflow','hidden'],bxz:['box-sizing','border-box'],cur:['cursor','pointer'],m0a:['margin','0 auto'],c:['color',M],bgc:['background-color',M],bg:['background',M],bd:['border','1px solid '+M],w:['width',M],h:['height',M],m:['margin',M],p:['padding',M]};
+const CN={m:'margin',p:'padding',w:'width',h:'height',mt:'margin-top',mb:'margin-bottom',ml:'margin-left',mr:'margin-right',pt:'padding-top',pb:'padding-bottom',pl:'padding-left',pr:'padding-right',fz:'font-size',lh:'line-height',br:'border-radius',mw:'max-width',mh:'max-height',t:'top',l:'left',r:'right',b:'bottom',z:'z-index',gap:'gap',op:'opacity',fw:'font-weight'};
+function cssEmmet(line,s){
+ const mm=/[a-z]+(?:-?\d+\.?\d*(?:p|e|r|x|vh|vw)?)?$/.exec(line);if(!mm)return false;
+ const w=mm[0],n=/^([a-z]+?)(-?\d+\.?\d*)(p|e|r|x|vh|vw)?$/.exec(w);let out;
+ if(CK[w])out=CK[w][0]+': '+CK[w][1]+';';
+ else if(n&&CN[n[1]]){const bare=['z','op','fw','lh'].includes(n[1]);out=CN[n[1]]+': '+n[2]+(n[3]?({p:'%',e:'em',r:'rem',x:'px'}[n[3]]||n[3]):bare?'':'px')+';'}
+ else return false;
+ const i=out.indexOf(M),st=s-w.length;out=out.split(M).join('');
+ ta.setSelectionRange(st,s);ins(out);const c=st+(i<0?out.length:i);ta.setSelectionRange(c,c);return true;}
+function emmet(){
+ const v=ta.value,s=ta.selectionStart;if(s!==ta.selectionEnd)return false;
+ const b=v.slice(0,s),line=b.slice(b.lastIndexOf('\n')+1);
+ if(cssBlock(v,s))return cssEmmet(line,s);
+ if(lang()!=='html')return false;
+ if(b.lastIndexOf('<')>b.lastIndexOf('>'))return false; // inside a tag
+ if(Math.max(b.lastIndexOf('<style'),b.lastIndexOf('<script'))>Math.max(b.lastIndexOf('</style'),b.lastIndexOf('</script')))return false;
+ const m=/(?:[\w.#>+*$!-]|\{[^}]*\}|\[[^\]]*\])+$/.exec(line);if(!m)return false;
+ let t;try{t=m[0]==='!'?boiler():gen(m[0].split('>'),0)}catch(x){return false}
+ t=t.split('\n').join('\n'+/^[ \t]*/.exec(line)[0]);
+ const i=t.indexOf(M),st=s-m[0].length;t=t.split(M).join('');
+ ta.setSelectionRange(st,s);ins(t);const c=st+(i<0?t.length:i);ta.setSelectionRange(c,c);return true;}
+// Tab = Emmet, or indent. Shift+Tab, or many lines selected = indent / outdent lines
+function tabKey(shift){
+ const v=ta.value,s=ta.selectionStart,e=ta.selectionEnd;
+ if((s!==e&&v.slice(s,e).includes('\n'))||shift){
+  const ls=v.lastIndexOf('\n',s-1)+1;let le=v.indexOf('\n',e);if(le<0)le=v.length;
+  const r=v.slice(ls,le).split('\n').map(l=>shift?l.replace(new RegExp('^ {1,'+ts+'}'),''):IND+l).join('\n');
+  ta.setSelectionRange(ls,le);ins(r);ta.setSelectionRange(ls,ls+r.length);return}
+ if(!emmet())ins(IND);}
+function closeTag(){ // typing > adds the closing tag
+ const v=ta.value,s=ta.selectionStart,line=lineB(v,s),m=OPEN.exec(line);
+ if(!m||line.endsWith('/>')||VOID.test(m[1].toLowerCase())||v.slice(s).startsWith('</'+m[1]))return;
+ ins('</'+m[1]+'>');ta.setSelectionRange(s,s);}
+function rename(){ // editing <div> also renames </div>
+ const v=ta.value,p=ta.selectionStart,m=/<([A-Za-z][\w-]*)$/.exec(v.slice(Math.max(0,p-60),p));if(!m)return;
+ const st=p-m[1].length,nn=m[1]+/^[\w-]*/.exec(v.slice(p))[0],op=prevV.slice(st),old=/^[\w-]*/.exec(op)[0];
+ if(!old||old===nn||prevV[st-1]!=='<'||!/^[^<>]*>/.test(op.slice(old.length)))return;
+ const re=new RegExp('<(/?)'+old+'(?=[\\s>/])','g');re.lastIndex=st+nn.length;let dep=1,x;
+ while((x=re.exec(v))){x[1]?dep--:dep++;
+  if(!dep){const a=x.index+2;ta.setSelectionRange(a,a+old.length);ins(nn);ta.setSelectionRange(p,p);return}}}
+ta.addEventListener('beforeinput',e=>{
+ if(inserting)return;
+ const t=e.inputType,s=ta.selectionStart,v=ta.value;
+ if(t==='insertLineBreak'||t==='insertParagraph'||(t==='insertText'&&e.data==='\n')){e.preventDefault();enter();return}
+ if(s!==ta.selectionEnd)return;
+ const skip=e.data&&(')]}"\'`'.includes(e.data)||(e.data===';'&&cssBlock(v,s)));
+ if(t==='insertText'&&skip&&v[s]===e.data){e.preventDefault();ta.setSelectionRange(s+1,s+1)} // type over the closing character
+ else if(t==='deleteContentBackward'&&PAIRS[v[s-1]]===v[s]){e.preventDefault();ta.setSelectionRange(s-1,s+1);document.execCommand('delete')}});
+ta.addEventListener('input',e=>{
+ if(!busy&&!inserting){busy=true;try{
+  const d=e.data,v=ta.value,s=ta.selectionStart;
+  if(e.inputType==='insertText'&&d&&d.length===1){
+   if(d===':'&&cssBlock(v,s)&&/^\s*[\w-]+:$/.test(lineB(v,s))&&(!v[s]||'\n}'.includes(v[s]))){ins(';');ta.setSelectionRange(s,s)} // color:| ;
+   else if(PAIRS[d]&&!(/["'`]/.test(d)&&/\w/.test(v[s-2]||''))&&!/\w/.test(v[s]||'')){ins(PAIRS[d]);ta.setSelectionRange(s,s)}
+   else if(d==='>')closeTag();}
+  rename();}finally{busy=false}}
+ prevV=ta.value;render();schedule();});
+ta.addEventListener('keydown',e=>{
+ if(e.key==='Tab'){e.preventDefault();tabKey(e.shiftKey)}
+ else if(e.key==='Enter'&&!e.ctrlKey&&!e.metaKey){e.preventDefault();enter()}
+ else if((e.ctrlKey||e.metaKey)&&e.key==='s'){e.preventDefault();save()}});
+$('tab').onpointerdown=e=>e.preventDefault(); // keeps the keyboard open
+$('tab').onclick=()=>{ta.focus();tabKey(false)};
+
+/* ================= 5. Files and settings ================= */
+function loadText(t){ta.value=t;prevV=t;store.set('fname',fname);render();fullReload(t);store.set('code',t);$('menu').classList.remove('on')}
+$('new').onclick=()=>{const n=prompt('File name','index.html');if(n){fname=n;loadText('')}};
+$('open').onclick=()=>$('file').click();
+$('file').onchange=async e=>{const f=e.target.files[0];if(!f)return;fname=f.name;const t=await f.text();e.target.value='';loadText(t)};
+async function save(){
+ const blob=new Blob([ta.value],{type:'text/plain'});
+ if(window.showSaveFilePicker){try{const h=await showSaveFilePicker({suggestedName:fname});const w=await h.createWritable();await w.write(blob);await w.close();return}catch(e){if(e.name==='AbortError')return}}
+ const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=fname;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),3000);}
+$('save').onclick=save;
+$('saveas').onclick=()=>{const n=prompt('File name',fname);if(n){fname=n;store.set('fname',n);save()}};
+function setFs(n){fsv=Math.min(32,Math.max(8,n));const f=Math.round(fsv*2)/2,r=document.documentElement.style;
+ r.setProperty('--fs',f+'px');r.setProperty('--lh',Math.round(f*1.5)+'px');store.set('fs',fsv)}
+$('fm').onclick=()=>setFs(fsv-1);$('fp').onclick=()=>setFs(fsv+1);
+function opts(){IND=' '.repeat(ts);ed.classList.toggle('nw',!wrap);document.documentElement.style.setProperty('--ts',ts);
+ $('tab').style.display=tabBtn?'':'none';
+ $('wrapb').textContent='Word wrap: '+(wrap?'on':'off');$('tsb').textContent='Indent size: '+ts+' spaces';$('tabb').textContent='Tab button: '+(tabBtn?'shown':'hidden');
+ store.set('wrap',wrap?1:0);store.set('ts',ts);store.set('tabbtn',tabBtn?1:0);render()}
+$('wrapb').onclick=()=>{wrap=!wrap;opts()};$('tsb').onclick=()=>{ts=ts==2?4:2;opts()};$('tabb').onclick=()=>{tabBtn=!tabBtn;opts()};
+
+/* ================= 6. Start ================= */
+setFs(fsv);
+ta.value=store.get('code')||'<!DOCTYPE html>\n<html lang="en">\n<head>\n  <meta charset="UTF-8">\n  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n  <title>Document</title>\n  <style>\n    body { font-family: sans-serif; padding: 16px; }\n    h1 { color: #0a84ff; }\n  </style>\n</head>\n<body>\n  <h1>Hello World</h1>\n  <p>Edit me. The preview updates live.</p>\n</body>\n</html>\n';
+prevV=ta.value;opts();setPreview(ta.value);layout();
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script></body></html>
